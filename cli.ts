@@ -33,15 +33,10 @@ async function main() {
             description: 'Name of the generated TypeScript definition file.',
             default: 'binding_types.d.ts',
         })
-        .option('astJsonTempFile', {
+        .option('extTypesPath', {
             type: 'string',
-            description: 'Temporary file name for the clang AST JSON output.',
-            default: 'ast.temp.json',
-        })
-        .option('quickjsTypesPath', {
-            type: 'string',
-            description: 'Path to the quickjs-types.txt file relative to the bindgen directory.',
-            default: 'quickjs-types.txt',
+            description: 'Path to additional type definitions.',
+            default: '',
         })
         .option('nameFilter', {
             type: 'string',
@@ -78,7 +73,7 @@ async function main() {
             clangPath: argv.clang,
             cppBindingOutputFile: argv.cppBindingOutputFile,
             tsDefinitionOutputFile: argv.tsDefinitionOutputFile,
-            quickjsTypesPath: argv.quickjsTypesPath,
+            additionalTypes: argv.extTypesPath ? readFileSync(resolvePath(argv.extTypesPath), 'utf-8') : '',
             nameFilter: argv.nameFilter + '::' // Add "::" back for internal use
         });
 
