@@ -242,7 +242,7 @@ template<> struct js_bind<${fullName}> {
         }
         for (const field of fields) { 
             binding += `
-                .property<&${fullName}::${field.name}>("${field.name}")`; 
+                .fun<&${fullName}::${field.name}>("${field.name}")`; 
         }
         binding += `
             ;
@@ -341,8 +341,6 @@ export function generateBindingsAndDefinitions(config: BindgenConfig): void {
 
     const absoluteCppFilePath = resolvePath(cppFilePath);
     const absoluteOutputDir = resolvePath(outputDir);
-    const currentFilePath = fileURLToPath(import.meta.url);
-    const bindgenDir = dirname(currentFilePath);
 
     const clangArgs = [
         '-Xclang', '-ast-dump=json',
