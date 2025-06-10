@@ -286,7 +286,7 @@ export class ${tsClassName}${bases.length > 0 ? ` extends ${bases.map(base => ba
         if (tsNamespace) typescriptDef += `\n}`;
     };
 
-    const enumerateStructDecls = (node: ClangASTD, callback: (node: ClangASTD, path: string[]) => void, path: string[] = ['breeze']) => { 
+    const enumerateStructDecls = (node: ClangASTD, callback: (node: ClangASTD, path: string[]) => void, path: string[] = [nameFilter.split('::')[0]]) => { 
         if (node.kind === 'CXXRecordDecl' && node.name && node.inner) {
             callback(node, path);
         }

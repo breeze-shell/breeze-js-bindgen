@@ -39,14 +39,23 @@ breeze-bindgen -i <input_header_file> [options]
 
 **Options:**
 
-*   `-i, --input <input_header_file>`: Path to the input C++ header file to process. (Required)
-*   `-o, --output <output_directory>`: Directory where the generated `binding_qjs.h` and `binding_types.d.ts` files will be saved. Defaults to `generated_bindings` in the input file's directory if not specified.
-*   `--clang <clang_executable_path>`: Optional path to the `clang++` executable.
-*   `--cppBindingOutputFile <filename>`: Name of the generated C++ binding file. Defaults to `binding_qjs.h`.
-*   `--tsDefinitionOutputFile <filename>`: Name of the generated TypeScript definition file. Defaults to `binding_types.d.ts`.
-*   `--astJsonTempFile <filename>`: Temporary file name for the clang AST JSON output. Defaults to `ast.temp.json`.
-*   `--quickjsTypesPath <filepath>`: Path to the `quickjs-types.txt` file relative to the bindgen directory. Defaults to `quickjs-types.txt`.
-*   `--nameFilter <filter>`: Clang AST dump filter for names (e.g., "breeze::js"). Defaults to "breeze::js".
+      --version                 Show version number                    [boolean]
+  -i, --input                   Path to the input C++ header file to process.
+                                                             [string] [required]
+  -o, --output                  Directory where the generated binding.h and
+                                definition.d.ts files will be saved.    [string]
+      --clang                   Optional path to the clang++ executable.[string]
+      --cppBindingOutputFile    Name of the generated C++ binding file.
+                                             [string] [default: "binding_qjs.h"]
+      --tsDefinitionOutputFile  Name of the generated TypeScript definition
+                                file.   [string] [default: "binding_types.d.ts"]
+      --tsModuleName            Name of the TypeScript module.
+                                                  [string] [default: "BreezeJS"]
+      --extTypesPath            Path to additional type definitions.
+                                                          [string] [default: ""]
+      --nameFilter              Clang AST dump filter for names (e.g.,
+                                "breeze::js").  [string] [default: "breeze::js"]
+  -h, --help                    Show help                              [boolean]
 
 **Example:**
 
