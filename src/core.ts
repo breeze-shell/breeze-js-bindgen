@@ -9,7 +9,7 @@ import { CTypeParser, cTypeToTypeScript } from "./c-type-parser";
 const DEFAULT_CPP_BINDING_OUTPUT_FILE = 'binding_qjs.h';
 const DEFAULT_TS_DEFINITION_OUTPUT_FILE = 'binding_types.d.ts';
 const DEFAULT_NAME_FILTER = "breeze::js::";
-
+const RETRIEVE_COMMENTS_USING_AST = true;
 
 interface GenerationResult {
     cppBinding: string;
@@ -76,9 +76,9 @@ function parseFunctionQualType(type: string): { returnType: string; args: string
 function processAstAndGenerateCode(
     astArr: ClangASTD[],
     originalCppFilePath: string,
-    nameFilter: string, 
-    additionalTypes: string, 
-    tsModuleName: string 
+    nameFilter: string,
+    additionalTypes: string,
+    tsModuleName: string
 ): GenerationResult {
     const origFileContent = readFileSync(originalCppFilePath, 'utf-8').split('\n').map(v => v.trim());
     const structNames: string[] = [];
@@ -137,34 +137,48 @@ declare module '${tsModuleName}' {
         for (const node of node_struct.inner) {
             if (node.name?.startsWith('$')) continue;
             const lineNum = node.loc?.line;
+
             let comment = '';
-            if (lineNum) {
-                let rangeCommentCnt = 0;
-                for (let i = lineNum - 2; i >= 0; i--) {
-                    const line = origFileContent[i];
-                    if (!line) continue;
-                    if (line.startsWith('//')) {
-                        comment = line.substring(2) + '\n' + comment;
-                        continue;
+            if (RETRIEVE_COMMENTS_USING_AST) {
+                const dfsForComment = (node: ClangASTD): string => {
+                    if (node.kind === 'TextComment') {
+                        return node.text || '';
                     }
-                    if (line.startsWith('/*')) rangeCommentCnt++;
-                    if (line.endsWith('*/')) rangeCommentCnt--;
-                    if (rangeCommentCnt === 0 && (line.startsWith('/*') || line.endsWith('*/'))) {
-                        if (line.startsWith('/*') && line.endsWith('*/')) {
-                            comment = line.substring(2, line.length - 2) + '\n' + comment;
-                        } else if (line.startsWith('/*')) {
-                        } else if (line.endsWith('*/')) {
-                            comment = line.substring(0, line.length - 2) + '\n' + comment;
+                    if (node.inner) {
+                        return node.inner.map(dfsForComment).filter(Boolean).join('\n');
+                    }
+                    return '';
+                }
+                comment = dfsForComment(node);
+            } else {
+                if (lineNum) {
+                    let rangeCommentCnt = 0;
+                    for (let i = lineNum - 2; i >= 0; i--) {
+                        const line = origFileContent[i];
+                        if (!line) continue;
+                        if (line.startsWith('//')) {
+                            comment = line.substring(2) + '\n' + comment;
+                            continue;
                         }
-                        break;
-                    } else if (rangeCommentCnt > 0 || line.endsWith('*/')) {
-                        comment = line.replaceAll('/*', '').replaceAll('*/', '*') + '\n' + comment;
-                    } else if (rangeCommentCnt === 0 && !line.startsWith('//') && !line.startsWith('/*') && !line.endsWith('*/')) {
-                        break;
+                        if (line.startsWith('/*')) rangeCommentCnt++;
+                        if (line.endsWith('*/')) rangeCommentCnt--;
+                        if (rangeCommentCnt === 0 && (line.startsWith('/*') || line.endsWith('*/'))) {
+                            if (line.startsWith('/*') && line.endsWith('*/')) {
+                                comment = line.substring(2, line.length - 2) + '\n' + comment;
+                            } else if (line.startsWith('/*')) {
+                            } else if (line.endsWith('*/')) {
+                                comment = line.substring(0, line.length - 2) + '\n' + comment;
+                            }
+                            break;
+                        } else if (rangeCommentCnt > 0 || line.endsWith('*/')) {
+                            comment = line.replaceAll('/*', '').replaceAll('*/', '*') + '\n' + comment;
+                        } else if (rangeCommentCnt === 0 && !line.startsWith('//') && !line.startsWith('/*') && !line.endsWith('*/')) {
+                            break;
+                        }
                     }
                 }
+                comment = comment.trim();
             }
-            comment = comment.trim();
 
 
             if (node.kind === 'FieldDecl') {
@@ -240,9 +254,9 @@ template<> struct js_bind<${fullName}> {
             binding += `
                 .${method.static ? 'static_' : ''}fun<&${fullName}::${method.name}>("${method.name}")`;
         }
-        for (const field of fields) { 
+        for (const field of fields) {
             binding += `
-                .fun<&${fullName}::${field.name}>("${field.name}")`; 
+                .fun<&${fullName}::${field.name}>("${field.name}")`;
         }
         binding += `
             ;
@@ -258,7 +272,7 @@ template<> struct js_bind<${fullName}> {
         typescriptDef += `
 export class ${tsClassName}${bases.length > 0 ? ` extends ${bases.map(base => base.type.split('::').pop() ?? base.type).join(', ')}` : ''} {`;
         fields.forEach(field => {
-            let fieldDef = `${field.name}${field.type.startsWith('std::optional') ? '?' : ''}: ${cTypeToTypeScript(field.type, nameFilter)}`; 
+            let fieldDef = `${field.name}${field.type.startsWith('std::optional') ? '?' : ''}: ${cTypeToTypeScript(field.type, nameFilter)}`;
             if (field.comment) {
                 fieldDef = `
     /**
@@ -269,7 +283,7 @@ export class ${tsClassName}${bases.length > 0 ? ` extends ${bases.map(base => ba
             typescriptDef += `\n\t${fieldDef.trim()}`;
         });
         methods.forEach(method => {
-            let methodDef = `${method.static ? 'static ' : ''}${method.name}(${method.argNames && method.argNames.length > 0 ? method.args.map((arg, i) => `${method.argNames![i] || `arg${i}`}: ${cTypeToTypeScript(arg, nameFilter)}`).join(', ') : ''}): ${cTypeToTypeScript(method.returnType, nameFilter)}`; 
+            let methodDef = `${method.static ? 'static ' : ''}${method.name}(${method.argNames && method.argNames.length > 0 ? method.args.map((arg, i) => `${method.argNames![i] || `arg${i}`}: ${cTypeToTypeScript(arg, nameFilter)}`).join(', ') : ''}): ${cTypeToTypeScript(method.returnType, nameFilter)}`;
             let comments = '';
             if (method.comment) comments += method.comment;
             if (comments || (method.argNames && method.argNames.length > 0)) {
@@ -286,7 +300,7 @@ export class ${tsClassName}${bases.length > 0 ? ` extends ${bases.map(base => ba
         if (tsNamespace) typescriptDef += `\n}`;
     };
 
-    const enumerateStructDecls = (node: ClangASTD, callback: (node: ClangASTD, path: string[]) => void, path: string[] = [nameFilter.split('::')[0]]) => { 
+    const enumerateStructDecls = (node: ClangASTD, callback: (node: ClangASTD, path: string[]) => void, path: string[] = [nameFilter.split('::')[0]]) => {
         if (node.kind === 'CXXRecordDecl' && node.name && node.inner) {
             callback(node, path);
         }
@@ -336,7 +350,7 @@ export function generateBindingsAndDefinitions(config: BindgenConfig): void {
         tsDefinitionOutputFile = DEFAULT_TS_DEFINITION_OUTPUT_FILE,
         additionalTypes = '',
         nameFilter = DEFAULT_NAME_FILTER,
-        tsModuleName = 'mshell' 
+        tsModuleName = 'mshell'
     } = config;
 
     const absoluteCppFilePath = resolvePath(cppFilePath);
@@ -344,15 +358,14 @@ export function generateBindingsAndDefinitions(config: BindgenConfig): void {
 
     const clangArgs = [
         '-Xclang', '-ast-dump=json',
-        '-fsyntax-only',
         '-Xclang', `-ast-dump-filter=${nameFilter.slice(0, -2)}`,
-        '-std=c++2c',
+        '-std=c++2c', '-fsyntax-only', '-fparse-all-comments',
         absoluteCppFilePath
     ];
 
     log(`Executing: ${clangPath} ${clangArgs.join(' ')}`);
 
-    const clangProcess = spawnSync(clangPath, clangArgs, { encoding: 'utf-8', shell: true });
+    const clangProcess = spawnSync(clangPath, clangArgs, { encoding: 'utf-8', maxBuffer: 200 * 1024 * 1024 });
 
     if (clangProcess.error) {
         log.error(`Failed to start clang++: ${clangProcess.error.message}`);
@@ -362,7 +375,7 @@ export function generateBindingsAndDefinitions(config: BindgenConfig): void {
         throw clangProcess.error;
     }
 
-    
+
     if (clangProcess.stderr && clangProcess.stderr.length > 0) {
         log.warn(`clang++ stderr:\n${clangProcess.stderr}`);
     }

@@ -5,6 +5,7 @@ export interface inner {
     range?: range;
     inner?: inner[];
     isImplicit?: boolean;
+    text?: string;
     name?: string;
     tagUsed?: string;
     implicit?: boolean;

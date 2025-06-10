@@ -30,6 +30,7 @@
     "cli": "node -r esbuild-register src/cli.ts",
     "typegen": "node -r esbuild-register src/typegen.ts",
     "parser-test": "node -r esbuild-register src/c-type-parser.ts",
-    "build-types": "tsc -p ./tsconfig.json --emitDeclarationOnly --declaration --outdir dist"
+    "build-types": "tsc -p ./tsconfig.json --emitDeclarationOnly --declaration --outdir dist",
+    "test": "yarn cli -i D:\\breeze-shell\\src\\shell\\script\\binding_types.hpp -o test --nameFilter mb_shell::js"
   }
 }

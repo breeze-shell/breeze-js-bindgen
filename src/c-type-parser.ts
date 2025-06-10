@@ -125,6 +125,7 @@ export class CTypeParser {
             'std.string': 'string',
             'std.vector': 'Array',
             'bool': 'boolean',
+            'async_simple.coro.Lazy': 'Promise'
         }
 
         let tsBasicType = (typeMap[node.type] ?? node.type) + (node.template ? '<' + node.argsTemplate.map(a => this.formatToTypeScript(a, namespace)).join(', ') + '>' : '')
