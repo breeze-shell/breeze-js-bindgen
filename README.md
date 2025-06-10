@@ -37,6 +37,7 @@ The `breeze-bindgen` command-line tool can be used to generate bindings and defi
 breeze-bindgen -i <input_header_file> [options]
 ```
 
+```
 **Options:**
 
       --version                 Show version number                    [boolean]
@@ -56,6 +57,7 @@ breeze-bindgen -i <input_header_file> [options]
       --nameFilter              Clang AST dump filter for names (e.g.,
                                 "breeze::js").  [string] [default: "breeze::js"]
   -h, --help                    Show help                              [boolean]
+```
 
 **Example:**
 
