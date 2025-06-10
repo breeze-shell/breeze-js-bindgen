@@ -17,7 +17,6 @@ async function main() {
             alias: 'o',
             type: 'string',
             description: 'Directory where the generated binding.h and definition.d.ts files will be saved.',
-            // Default will be set later based on input file if not provided
         })
         .option('clang', {
             type: 'string',
@@ -46,7 +45,7 @@ async function main() {
         .option('nameFilter', {
             type: 'string',
             description: 'Clang AST dump filter for names (e.g., "breeze::js").',
-            default: 'breeze::js', // Note: core.ts adds "::" internally
+            default: 'breeze::js',
         })
         .help()
         .alias('h', 'help')
@@ -79,7 +78,7 @@ async function main() {
             cppBindingOutputFile: argv.cppBindingOutputFile,
             tsDefinitionOutputFile: argv.tsDefinitionOutputFile,
             additionalTypes: argv.extTypesPath ? readFileSync(resolvePath(argv.extTypesPath), 'utf-8') : '',
-            nameFilter: argv.nameFilter + '::', // Add "::" back for internal use
+            nameFilter: argv.nameFilter + '::',
             tsModuleName: argv.tsModuleName,
         });
 

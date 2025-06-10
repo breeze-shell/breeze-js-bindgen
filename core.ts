@@ -8,8 +8,6 @@ import { CTypeParser, cTypeToTypeScript } from "./c-type-parser";
 
 const DEFAULT_CPP_BINDING_OUTPUT_FILE = 'binding_qjs.h';
 const DEFAULT_TS_DEFINITION_OUTPUT_FILE = 'binding_types.d.ts';
-const DEFAULT_AST_JSON_TEMP_FILE = 'ast.temp.json';
-const DEFAULT_QUICKJS_TYPES_PATH = 'quickjs-types.txt'; // Relative to bindgen directory
 const DEFAULT_NAME_FILTER = "breeze::js::";
 
 
@@ -78,9 +76,9 @@ function parseFunctionQualType(type: string): { returnType: string; args: string
 function processAstAndGenerateCode(
     astArr: ClangASTD[],
     originalCppFilePath: string,
-    nameFilter: string, // Pass nameFilter here
-    additionalTypes: string, // Pass quickjsTypesPath here
-    tsModuleName: string // Pass tsModuleName here
+    nameFilter: string, 
+    additionalTypes: string, 
+    tsModuleName: string 
 ): GenerationResult {
     const origFileContent = readFileSync(originalCppFilePath, 'utf-8').split('\n').map(v => v.trim());
     const structNames: string[] = [];
@@ -242,9 +240,9 @@ template<> struct js_bind<${fullName}> {
             binding += `
                 .${method.static ? 'static_' : ''}fun<&${fullName}::${method.name}>("${method.name}")`;
         }
-        for (const field of fields) { // Assuming fields are exposed as getter/setter methods or properties
+        for (const field of fields) { 
             binding += `
-                .property<&${fullName}::${field.name}>("${field.name}")`; // Or .fun if it's a method
+                .property<&${fullName}::${field.name}>("${field.name}")`; 
         }
         binding += `
             ;
@@ -260,7 +258,7 @@ template<> struct js_bind<${fullName}> {
         typescriptDef += `
 export class ${tsClassName}${bases.length > 0 ? ` extends ${bases.map(base => base.type.split('::').pop() ?? base.type).join(', ')}` : ''} {`;
         fields.forEach(field => {
-            let fieldDef = `${field.name}${field.type.startsWith('std::optional') ? '?' : ''}: ${cTypeToTypeScript(field.type, nameFilter)}`; // Use parameter
+            let fieldDef = `${field.name}${field.type.startsWith('std::optional') ? '?' : ''}: ${cTypeToTypeScript(field.type, nameFilter)}`; 
             if (field.comment) {
                 fieldDef = `
     /**
@@ -271,7 +269,7 @@ export class ${tsClassName}${bases.length > 0 ? ` extends ${bases.map(base => ba
             typescriptDef += `\n\t${fieldDef.trim()}`;
         });
         methods.forEach(method => {
-            let methodDef = `${method.static ? 'static ' : ''}${method.name}(${method.argNames && method.argNames.length > 0 ? method.args.map((arg, i) => `${method.argNames![i] || `arg${i}`}: ${cTypeToTypeScript(arg, nameFilter)}`).join(', ') : ''}): ${cTypeToTypeScript(method.returnType, nameFilter)}`; // Use parameter
+            let methodDef = `${method.static ? 'static ' : ''}${method.name}(${method.argNames && method.argNames.length > 0 ? method.args.map((arg, i) => `${method.argNames![i] || `arg${i}`}: ${cTypeToTypeScript(arg, nameFilter)}`).join(', ') : ''}): ${cTypeToTypeScript(method.returnType, nameFilter)}`; 
             let comments = '';
             if (method.comment) comments += method.comment;
             if (comments || (method.argNames && method.argNames.length > 0)) {
@@ -288,7 +286,7 @@ export class ${tsClassName}${bases.length > 0 ? ` extends ${bases.map(base => ba
         if (tsNamespace) typescriptDef += `\n}`;
     };
 
-    const enumerateStructDecls = (node: ClangASTD, callback: (node: ClangASTD, path: string[]) => void, path: string[] = ['breeze']) => { // Assuming 'breeze' as a root, might need adjustment
+    const enumerateStructDecls = (node: ClangASTD, callback: (node: ClangASTD, path: string[]) => void, path: string[] = ['breeze']) => { 
         if (node.kind === 'CXXRecordDecl' && node.name && node.inner) {
             callback(node, path);
         }
@@ -338,7 +336,7 @@ export function generateBindingsAndDefinitions(config: BindgenConfig): void {
         tsDefinitionOutputFile = DEFAULT_TS_DEFINITION_OUTPUT_FILE,
         additionalTypes = '',
         nameFilter = DEFAULT_NAME_FILTER,
-        tsModuleName = 'mshell' // Default module name
+        tsModuleName = 'mshell' 
     } = config;
 
     const absoluteCppFilePath = resolvePath(cppFilePath);
@@ -366,7 +364,7 @@ export function generateBindingsAndDefinitions(config: BindgenConfig): void {
         throw clangProcess.error;
     }
 
-    // Clang AST dump often outputs to stdout. Read directly from stdout.
+    
     if (clangProcess.stderr && clangProcess.stderr.length > 0) {
         log.warn(`clang++ stderr:\n${clangProcess.stderr}`);
     }
