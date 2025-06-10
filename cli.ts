@@ -33,6 +33,11 @@ async function main() {
             description: 'Name of the generated TypeScript definition file.',
             default: 'binding_types.d.ts',
         })
+        .option('tsModuleName', {
+            type: 'string',
+            description: 'Name of the TypeScript module.',
+            default: 'BreezeJS',
+        })
         .option('extTypesPath', {
             type: 'string',
             description: 'Path to additional type definitions.',
@@ -74,7 +79,8 @@ async function main() {
             cppBindingOutputFile: argv.cppBindingOutputFile,
             tsDefinitionOutputFile: argv.tsDefinitionOutputFile,
             additionalTypes: argv.extTypesPath ? readFileSync(resolvePath(argv.extTypesPath), 'utf-8') : '',
-            nameFilter: argv.nameFilter + '::' // Add "::" back for internal use
+            nameFilter: argv.nameFilter + '::', // Add "::" back for internal use
+            tsModuleName: argv.tsModuleName,
         });
 
         log("Binding generation finished successfully.");

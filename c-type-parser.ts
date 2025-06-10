@@ -156,9 +156,3 @@ export const cTypeToTypeScript = (str: string, namespace: string) => {
     return parser.formatToTypeScript(res, namespace);
 }
 
-
-// Example usage:
-
-// const parser = new CTypeParser();
-// const res = parser.parse('std::function<void()>(std::function<void(breeze::js::menu_info_basic_js)>)')
-// console.log(JSON.stringify(res, null, 2), parser.formatToTypeScript(res))
