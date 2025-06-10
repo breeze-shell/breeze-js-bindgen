@@ -198,10 +198,11 @@ declare module '${tsModuleName}' {
                         if (arg.kind === 'ParmVarDecl') argNames.push(arg.name!);
                     }
                 }
+                
                 methods.push({
                     name: node.name!,
-                    returnType: ctypeToQualified(parsed.returnType, path),
-                    args: parsed.args.map(arg => ctypeToQualified(arg, path)),
+                    returnType: ctypeToQualified(parsed.returnType, [...path, node.name!]),
+                    args: parsed.args.map(arg => ctypeToQualified(arg, [...path, node_struct.name!])),
                     static: node.storageClass === 'static',
                     comment: comment.length > 0 ? comment : undefined,
                     argNames
@@ -315,6 +316,7 @@ export class ${tsClassName}${bases.length > 0 ? ` extends ${bases.map(base => ba
         enumerateStructDecls(ast, (node, path) => {
             if (node.name) structNames.push(path.join('::') + '::' + node.name);
         });
+
     }
     for (const ast of astArr) {
         enumerateStructDecls(ast, (node, path) => {
