@@ -198,7 +198,7 @@ declare module '${tsModuleName}' {
                         if (arg.kind === 'ParmVarDecl') argNames.push(arg.name!);
                     }
                 }
-                
+
                 methods.push({
                     name: node.name!,
                     returnType: ctypeToQualified(parsed.returnType, [...path, node.name!]),
@@ -284,7 +284,9 @@ export class ${tsClassName}${bases.length > 0 ? ` extends ${bases.map(base => ba
             typescriptDef += `\n\t${fieldDef.trim()}`;
         });
         methods.forEach(method => {
-            let methodDef = `${method.static ? 'static ' : ''}${method.name}(${method.argNames && method.argNames.length > 0 ? method.args.map((arg, i) => `${method.argNames![i] || `arg${i}`}: ${cTypeToTypeScript(arg, nameFilter)}`).join(', ') : ''}): ${cTypeToTypeScript(method.returnType, nameFilter)}`;
+            let methodDef = `${method.static ? 'static ' : ''}${method.name}(${method.argNames && method.argNames.length > 0 ? method.args.map((arg, i) =>
+                `${method.argNames![i] || `arg${i}`}${arg.startsWith('std::optional') ? '?' : ''
+                }: ${cTypeToTypeScript(arg, nameFilter)}`).join(', ') : ''}): ${cTypeToTypeScript(method.returnType, nameFilter)}`;
             let comments = '';
             if (method.comment) comments += method.comment;
             if (comments || (method.argNames && method.argNames.length > 0)) {
