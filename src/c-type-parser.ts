@@ -21,7 +21,8 @@ export class CTypeParser {
             const c = str[i];
             if (BREAK_TOKENS.includes(c)) {
                 if (current.length > 0) {
-                    this.tokens.push(current);
+                    if (current !== 'const' && current !== 'volatile')
+                        this.tokens.push(current);
                     current = '';
                 }
                 if (c !== ' ') {
