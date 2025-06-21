@@ -124,7 +124,17 @@ declare module '${tsModuleName}' {
         if (node_struct.kind !== 'CXXRecordDecl') throw new Error('Node is not a RecordDecl');
         const structName = node_struct.name!;
         const fields: { name: string; type: string; comment?: string }[] = [];
-        const methods: { name: string; returnType: string; args: string[]; static: boolean; comment?: string; argNames?: string[] }[] = [];
+        const methods: {
+            name: string;
+            returnType: string;
+            args: string[];
+            static: boolean;
+            comment?: string;
+            argNames?: string[];
+            isGetter?: boolean;
+            isSetter?: boolean;
+            propertyName?: string;
+        }[] = [];
         const bases: { access: 'public' | 'protected' | 'private'; type: string }[] = node_struct.bases?.filter(base => !base.type.qualType.includes('std::'))
             .map(base => ({
                 access: base.access as any,
@@ -198,14 +208,42 @@ declare module '${tsModuleName}' {
                     }
                 }
 
-                methods.push({
-                    name: node.name!,
-                    returnType: ctypeToQualified(parsed.returnType, [...path, node.name!]),
-                    args: parsed.args.map(arg => ctypeToQualified(arg, [...path, node_struct.name!])),
-                    static: node.storageClass === 'static',
-                    comment: comment.length > 0 ? comment : undefined,
-                    argNames
-                });
+                const methodName = node.name!;
+                // Check for getter/setter pattern
+                if (methodName.startsWith('get_') && parsed.args.length === 0) {
+                    const propName = methodName.substring(4);
+                    methods.push({
+                        name: methodName,
+                        returnType: ctypeToQualified(parsed.returnType, [...path, node.name!]),
+                        args: [],
+                        static: false,
+                        comment: comment.length > 0 ? comment : undefined,
+                        argNames: [],
+                        isGetter: true,
+                        propertyName: propName
+                    });
+                } else if (methodName.startsWith('set_') && parsed.args.length === 1) {
+                    const propName = methodName.substring(4);
+                    methods.push({
+                        name: methodName,
+                        returnType: ctypeToQualified(parsed.returnType, [...path, node.name!]),
+                        args: parsed.args.map(arg => ctypeToQualified(arg, [...path, node_struct.name!])),
+                        static: false,
+                        comment: comment.length > 0 ? comment : undefined,
+                        argNames,
+                        isSetter: true,
+                        propertyName: propName
+                    });
+                } else {
+                    methods.push({
+                        name: methodName,
+                        returnType: ctypeToQualified(parsed.returnType, [...path, node.name!]),
+                        args: parsed.args.map(arg => ctypeToQualified(arg, [...path, node_struct.name!])),
+                        static: node.storageClass === 'static',
+                        comment: comment.length > 0 ? comment : undefined,
+                        argNames
+                    });
+                }
             }
         }
 
@@ -250,9 +288,40 @@ template<> struct js_bind<${fullName}> {
             binding += `
                 .base<${bases[0].type}>()`;
         }
+        // First process properties (getters/setters)
+        const properties = new Map<string, {getter?: typeof methods[0], setter?: typeof methods[0]}>();
         for (const method of methods) {
-            binding += `
+            if (method.isGetter) {
+                const prop = properties.get(method.propertyName!) || {};
+                prop.getter = method;
+                properties.set(method.propertyName!, prop);
+            } else if (method.isSetter) {
+                const prop = properties.get(method.propertyName!) || {};
+                prop.setter = method;
+                properties.set(method.propertyName!, prop);
+            }
+        }
+
+        // Generate property bindings
+        for (const [propName, {getter, setter}] of properties) {
+            if (!getter) {
+                throw new Error(`Found setter ${setter!.name} without getter for property ${propName}`);
+            }
+            if (setter) {
+                binding += `
+                .property<&${fullName}::${getter.name}, &${fullName}::${setter.name}>("${propName}")`;
+            } else {
+                binding += `
+                .property<&${fullName}::${getter.name}>("${propName}")`;
+            }
+        }
+
+        // Then process regular methods (excluding getters/setters we already processed)
+        for (const method of methods) {
+            if (!method.isGetter && !method.isSetter) {
+                binding += `
                 .${method.static ? 'static_' : ''}fun<&${fullName}::${method.name}>("${method.name}")`;
+            }
         }
         for (const field of fields) {
             binding += `
