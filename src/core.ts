@@ -135,6 +135,7 @@ declare module '${tsModuleName}' {
             isSetter?: boolean;
             propertyName?: string;
         }[] = [];
+        const properties = new Map<string, {getter?: typeof methods[0], setter?: typeof methods[0]}>();
         const bases: { access: 'public' | 'protected' | 'private'; type: string }[] = node_struct.bases?.filter(base => !base.type.qualType.includes('std::'))
             .map(base => ({
                 access: base.access as any,
@@ -288,8 +289,7 @@ template<> struct js_bind<${fullName}> {
             binding += `
                 .base<${bases[0].type}>()`;
         }
-        // First process properties (getters/setters)
-        const properties = new Map<string, {getter?: typeof methods[0], setter?: typeof methods[0]}>();
+        // Process properties (getters/setters)
         for (const method of methods) {
             if (method.isGetter) {
                 const prop = properties.get(method.propertyName!) || {};
@@ -351,7 +351,39 @@ export class ${tsClassName}${bases.length > 0 ? ` extends ${bases.map(base => ba
             }
             typescriptDef += `\n\t${fieldDef.trim()}`;
         });
+        // Generate properties first (from getters/setters)
+        for (const method of methods) {
+            if (method.isGetter) {
+                const prop = properties.get(method.propertyName!) || {};
+                prop.getter = method;
+                properties.set(method.propertyName!, prop);
+            } else if (method.isSetter) {
+                const prop = properties.get(method.propertyName!) || {};
+                prop.setter = method;
+                properties.set(method.propertyName!, prop);
+            }
+        }
+
+        for (const [propName, {getter, setter}] of properties) {
+            let propDef = `get ${propName}(): ${cTypeToTypeScript(getter!.returnType, nameFilter)};`;
+            if (setter) {
+                propDef += `\n    set ${propName}(value: ${cTypeToTypeScript(setter.args[0], nameFilter)});`;
+            }
+            
+            if (getter?.comment) {
+                propDef = `
+    /**
+     * ${getter.comment.split('\n').join('\n     * ')}
+     */
+    ${propDef}`;
+            }
+            typescriptDef += `\n\t${propDef.trim()}`;
+        }
+
+        // Then generate regular methods (excluding getters/setters)
         methods.forEach(method => {
+            if (method.isGetter || method.isSetter) return;
+            
             let methodDef = `${method.static ? 'static ' : ''}${method.name}(${method.argNames && method.argNames.length > 0 ? method.args.map((arg, i) =>
                 `${method.argNames![i] || `arg${i}`}${arg.startsWith('std::optional') ? '?' : ''
                 }: ${cTypeToTypeScript(arg, nameFilter)}`).join(', ') : ''}): ${cTypeToTypeScript(method.returnType, nameFilter)}`;
