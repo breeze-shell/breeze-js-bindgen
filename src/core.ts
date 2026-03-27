@@ -82,11 +82,12 @@ function processAstAndGenerateCode(
 ): GenerationResult {
     const origFileContent = readFileSync(originalCppFilePath, 'utf-8').split('\n').map(v => v.trim());
     const structNames: string[] = [];
+    const enumNames: string[] = [];
 
     const resolveUnderPath = (path: string[], resolveName: string): string => {
         const ns = path.join('::');
         const fullName = `${ns}::${resolveName}`;
-        if (structNames.includes(fullName)) return fullName;
+        if (structNames.includes(fullName) || enumNames.includes(fullName)) return fullName;
         if (path.length > 1) {
             const parentPath = path.slice(0, -1);
             const parentFullName = resolveUnderPath(parentPath, resolveName);
@@ -210,9 +211,11 @@ declare module '${tsModuleName}' {
                 }
 
                 const methodName = node.name!;
-                // Check for getter/setter pattern
-                if (methodName.startsWith('get_') && parsed.args.length === 0) {
-                    const propName = methodName.substring(4);
+                // Check for getter/setter pattern (supports both get_xx and getXx styles)
+                const getterMatch = methodName.match(/^get_(.+)$/) || (methodName.match(/^get([A-Z].*)$/) ? [null, methodName[3].toLowerCase() + methodName.slice(4)] : null);
+                const setterMatch = methodName.match(/^set_(.+)$/) || (methodName.match(/^set([A-Z].*)$/) ? [null, methodName[3].toLowerCase() + methodName.slice(4)] : null);
+                if (getterMatch && parsed.args.length === 0) {
+                    const propName = getterMatch[1]!;
                     methods.push({
                         name: methodName,
                         returnType: ctypeToQualified(parsed.returnType, [...path, node.name!]),
@@ -223,8 +226,8 @@ declare module '${tsModuleName}' {
                         isGetter: true,
                         propertyName: propName
                     });
-                } else if (methodName.startsWith('set_') && parsed.args.length === 1) {
-                    const propName = methodName.substring(4);
+                } else if (setterMatch && parsed.args.length === 1) {
+                    const propName = setterMatch[1]!;
                     methods.push({
                         name: methodName,
                         returnType: ctypeToQualified(parsed.returnType, [...path, node.name!]),
@@ -403,8 +406,56 @@ export class ${tsClassName}${bases.length > 0 ? ` extends ${bases.map(base => ba
         if (tsNamespace) typescriptDef += `\n}`;
     };
 
+    const generateForEnumDecl = (node_enum: ClangASTD, path: string[]) => {
+        if (node_enum.kind !== 'EnumDecl') throw new Error('Node is not an EnumDecl');
+        const enumName = node_enum.name!;
+        const fullName = path.join('::') + '::' + enumName;
+        const jsNamespaceName = fullName.replace(nameFilter, '');
+        const tsNamespaceParts = jsNamespaceName.split('::');
+        const tsEnumName = tsNamespaceParts.pop() || enumName;
+        const tsNamespace = tsNamespaceParts.join('.');
+
+        const enumerators: { name: string; value?: number | string }[] = [];
+        if (node_enum.inner) {
+            for (const child of node_enum.inner) {
+                if (child.kind === 'EnumConstantDecl' && child.name) {
+                    // Try to get integer value from inner expression
+                    let value: number | string | undefined;
+                    if (child.inner && child.inner.length > 0) {
+                        const valNode = child.inner.find(n => n.value !== undefined);
+                        if (valNode) value = valNode.value as number | string;
+                    }
+                    enumerators.push({ name: child.name, value });
+                }
+            }
+        }
+
+        // Generate C++ binding: expose enum values as numeric constants via static properties
+        binding += `
+template <> struct qjs::js_traits<${fullName}> {
+    static ${fullName} unwrap(JSContext *ctx, JSValueConst v) {
+        return static_cast<${fullName}>(js_traits<int>::unwrap(ctx, v));
+    }
+    static JSValue wrap(JSContext *ctx, const ${fullName} &val) noexcept {
+        return js_traits<int>::wrap(ctx, static_cast<int>(val));
+    }
+};`;
+
+        // Generate TypeScript enum definition
+        if (tsNamespace) typescriptDef += `\nnamespace ${tsNamespace} {`;
+        typescriptDef += `\nexport const enum ${tsEnumName} {`;
+        for (const enumerator of enumerators) {
+            typescriptDef += `\n\t${enumerator.name}${enumerator.value !== undefined ? ` = ${enumerator.value}` : ''},`;
+        }
+        typescriptDef += `\n}`;
+        if (tsNamespace) typescriptDef += `\n}`;
+    };
+
     const enumerateStructDecls = (node: ClangASTD, callback: (node: ClangASTD, path: string[]) => void, path: string[] = [nameFilter.split('::')[0]]) => {
         if (node.kind === 'CXXRecordDecl' && node.name && node.inner) {
+            callback(node, path);
+        }
+        if (node.kind === 'EnumDecl' && node.name && node.inner) {
             callback(node, path);
         }
         if (node.inner) {
@@ -416,13 +467,17 @@ export class ${tsClassName}${bases.length > 0 ? ` extends ${bases.map(base => ba
 
     for (const ast of astArr) {
         enumerateStructDecls(ast, (node, path) => {
-            if (node.name) structNames.push(path.join('::') + '::' + node.name);
+            if (node.name) {
+                if (node.kind === 'CXXRecordDecl') structNames.push(path.join('::') + '::' + node.name);
+                if (node.kind === 'EnumDecl') enumNames.push(path.join('::') + '::' + node.name);
+            }
         });
 
     }
     for (const ast of astArr) {
         enumerateStructDecls(ast, (node, path) => {
             if (node.kind === 'CXXRecordDecl' && node.name) generateForRecordDecl(node, path);
+            if (node.kind === 'EnumDecl' && node.name) generateForEnumDecl(node, path);
         });
     }
 
