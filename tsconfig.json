@@ -4,6 +4,7 @@
     "lib": [
       "ES2022"
     ],
+    "types": ["@types/node"],
     "module": "commonjs",
     "esModuleInterop": true,
     "forceConsistentCasingInFileNames": true,
