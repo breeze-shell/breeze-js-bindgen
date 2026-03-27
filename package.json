@@ -32,5 +32,9 @@
     "parser-test": "node -r esbuild-register src/c-type-parser.ts",
     "build-types": "tsc -p ./tsconfig.json --emitDeclarationOnly --declaration --outdir dist",
     "test": "yarn cli -i D:\\breeze-js\\src\\breeze-js\\binding\\binding_types.h -o test"
+  },
+  "repository": {
+    "url": "https://github.com/breeze-shell/breeze-js-bindgen",
+    "type": "git"
   }
 }
