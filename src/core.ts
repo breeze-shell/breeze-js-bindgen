@@ -518,7 +518,7 @@ export function generateBindingsAndDefinitions(config: BindgenConfig): void {
     const clangArgs = [
         '-Xclang', '-ast-dump=json',
         '-Xclang', `-ast-dump-filter=${nameFilter.slice(0, -2)}`,
-        '-std=c++2c', '-fsyntax-only', '-fparse-all-comments',
+        '-std=c++23', '-fsyntax-only', '-fparse-all-comments',
         absoluteCppFilePath
     ];
 
