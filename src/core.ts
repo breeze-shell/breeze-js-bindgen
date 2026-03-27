@@ -482,7 +482,7 @@ template <> struct qjs::js_traits<${fullName}> {
     }
 
     binding += `
-inline void bindAll(qjs::Context::Module &mod) {
+inline void ${tsModuleName}_bindAll(qjs::Context::Module &mod) {
 `;
     for (const structName of structNames) {
         binding += `
