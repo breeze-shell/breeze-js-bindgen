@@ -155,6 +155,10 @@ export class CTypeParser {
             }
         }
 
+        if (node.type === 'JSValue') {
+            return 'any';
+        }
+
         const ignoreTypes = ['std.variant', 'std.shared_ptr', 'std.function']
         if (
             ignoreTypes.includes(node.type)
