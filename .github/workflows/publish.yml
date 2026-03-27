@@ -19,6 +19,6 @@ jobs:
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
-      - run: npm i -g yarn
+      - run: yarn install
       - run: yarn build
       - run: npm publish
