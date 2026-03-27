@@ -147,6 +147,14 @@ export class CTypeParser {
 
         let tsBasicType = (typeMap[node.type] ?? node.type) + (node.template ? '<' + node.argsTemplate.map(a => this.formatToTypeScript(a, namespace)).join(', ') + '>' : '')
 
+        // Special case: std::vector<uint8_t> maps to ArrayBuffer instead of Array<number>
+        if (node.type === 'std.vector' && node.template && node.argsTemplate.length === 1) {
+            const innerType = node.argsTemplate[0].type;
+            if (innerType === 'uint8_t' || innerType === 'std.uint8_t') {
+                return 'ArrayBuffer';
+            }
+        }
+
         const ignoreTypes = ['std.variant', 'std.shared_ptr', 'std.function']
         if (
             ignoreTypes.includes(node.type)
