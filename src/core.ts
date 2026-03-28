@@ -136,7 +136,7 @@ declare module '${tsModuleName}' {
             isSetter?: boolean;
             propertyName?: string;
         }[] = [];
-        const properties = new Map<string, {getter?: typeof methods[0], setter?: typeof methods[0]}>();
+        const properties = new Map<string, { getter?: typeof methods[0], setter?: typeof methods[0] }>();
         const bases: { access: 'public' | 'protected' | 'private'; type: string }[] = node_struct.bases?.filter(base => !base.type.qualType.includes('std::'))
             .map(base => ({
                 access: base.access as any,
@@ -306,7 +306,7 @@ template<> struct js_bind<${fullName}> {
         }
 
         // Remove setters that don't have corresponding getters, as we won't be able to expose them as properties
-        for (const [propName, {getter, setter}] of properties) {
+        for (const [propName, { getter, setter }] of properties) {
             if (!getter) {
                 warn(`Property "${propName}" in ${fullName} has a setter but no getter. It will be ignored in the bindings.`);
                 properties.delete(propName);
@@ -314,7 +314,7 @@ template<> struct js_bind<${fullName}> {
         }
 
         // Generate property bindings
-        for (const [propName, {getter, setter}] of properties) {
+        for (const [propName, { getter, setter }] of properties) {
             if (setter) {
                 binding += `
                 .property<&${fullName}::${getter.name}, &${fullName}::${setter.name}>("${propName}")`;
@@ -372,12 +372,19 @@ export class ${tsClassName}${bases.length > 0 ? ` extends ${bases.map(base => ba
             }
         }
 
-        for (const [propName, {getter, setter}] of properties) {
+        for (const [propName, { getter, setter }] of properties) {
+            if (setter && !getter) {
+                warn(`Property "${propName}" in ${fullName} has a setter but no getter. It will be ignored in the TypeScript definitions.`);
+                properties.delete(propName);
+            }
+        }
+
+        for (const [propName, { getter, setter }] of properties) {
             let propDef = `get ${propName}(): ${cTypeToTypeScript(getter!.returnType, nameFilter)};`;
             if (setter) {
                 propDef += `\n    set ${propName}(value: ${cTypeToTypeScript(setter.args[0], nameFilter)});`;
             }
-            
+
             if (getter?.comment) {
                 propDef = `
     /**
@@ -391,7 +398,7 @@ export class ${tsClassName}${bases.length > 0 ? ` extends ${bases.map(base => ba
         // Then generate regular methods (excluding getters/setters)
         methods.forEach(method => {
             if (method.isGetter || method.isSetter) return;
-            
+
             let methodDef = `${method.static ? 'static ' : ''}${method.name}(${method.argNames && method.argNames.length > 0 ? method.args.map((arg, i) =>
                 `${method.argNames![i] || `arg${i}`}${arg.startsWith('std::optional') ? '?' : ''
                 }: ${cTypeToTypeScript(arg, nameFilter)}`).join(', ') : ''}): ${cTypeToTypeScript(method.returnType, nameFilter)}`;
