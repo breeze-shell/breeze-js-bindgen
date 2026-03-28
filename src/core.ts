@@ -308,7 +308,8 @@ template<> struct js_bind<${fullName}> {
         // Generate property bindings
         for (const [propName, {getter, setter}] of properties) {
             if (!getter) {
-                throw new Error(`Found setter ${setter!.name} without getter for property ${propName}`);
+                log(`[WARN] Found setter ${setter!.name} without getter for property ${propName}`);
+                continue;
             }
             if (setter) {
                 binding += `
