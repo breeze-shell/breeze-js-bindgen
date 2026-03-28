@@ -1,4 +1,4 @@
-import log from 'fancy-log';
+import log, { warn } from 'fancy-log';
 import { ClangASTD } from "./clang-ast";
 import { existsSync, readFileSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname, resolve as resolvePath } from "node:path";
@@ -305,12 +305,16 @@ template<> struct js_bind<${fullName}> {
             }
         }
 
-        // Generate property bindings
+        // Remove setters that don't have corresponding getters, as we won't be able to expose them as properties
         for (const [propName, {getter, setter}] of properties) {
             if (!getter) {
-                log(`[WARN] Found setter ${setter!.name} without getter for property ${propName}`);
-                continue;
+                warn(`Property "${propName}" in ${fullName} has a setter but no getter. It will be ignored in the bindings.`);
+                properties.delete(propName);
             }
+        }
+
+        // Generate property bindings
+        for (const [propName, {getter, setter}] of properties) {
             if (setter) {
                 binding += `
                 .property<&${fullName}::${getter.name}, &${fullName}::${setter.name}>("${propName}")`;
