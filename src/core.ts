@@ -326,10 +326,8 @@ template<> struct js_bind<${fullName}> {
 
         // Then process regular methods (excluding getters/setters we already processed)
         for (const method of methods) {
-            if (!method.isGetter && !method.isSetter) {
-                binding += `
+            binding += `
                 .${method.static ? 'static_' : ''}fun<&${fullName}::${method.name}>("${method.name}")`;
-            }
         }
         for (const field of fields) {
             binding += `
