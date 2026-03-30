@@ -316,7 +316,7 @@ template<> struct js_bind<${fullName}> {
 
         // Generate property bindings
         for (const [propName, { getter, setter }] of properties) {
-          if (setter.static !== getter.static) {
+            if (setter && setter.static !== getter.static) {
                 throw new Error(`Found setter ${setter!.name} with different staticness than getter for property ${propName}`);
             }
             if  (getter.static) {
