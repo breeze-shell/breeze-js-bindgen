@@ -214,13 +214,14 @@ declare module '${tsModuleName}' {
                 // Check for getter/setter pattern (supports both get_xx and getXx styles)
                 const getterMatch = methodName.match(/^get_(.+)$/) || (methodName.match(/^get([A-Z].*)$/) ? [null, methodName[3].toLowerCase() + methodName.slice(4)] : null);
                 const setterMatch = methodName.match(/^set_(.+)$/) || (methodName.match(/^set([A-Z].*)$/) ? [null, methodName[3].toLowerCase() + methodName.slice(4)] : null);
+                const isStatic = node.storageClass === 'static';
                 if (getterMatch && parsed.args.length === 0) {
                     const propName = getterMatch[1]!;
                     methods.push({
                         name: methodName,
                         returnType: ctypeToQualified(parsed.returnType, [...path, node.name!]),
                         args: [],
-                        static: false,
+                        static: isStatic,
                         comment: comment.length > 0 ? comment : undefined,
                         argNames: [],
                         isGetter: true,
@@ -232,7 +233,7 @@ declare module '${tsModuleName}' {
                         name: methodName,
                         returnType: ctypeToQualified(parsed.returnType, [...path, node.name!]),
                         args: parsed.args.map(arg => ctypeToQualified(arg, [...path, node_struct.name!])),
-                        static: false,
+                        static: isStatic,
                         comment: comment.length > 0 ? comment : undefined,
                         argNames,
                         isSetter: true,
@@ -243,7 +244,7 @@ declare module '${tsModuleName}' {
                         name: methodName,
                         returnType: ctypeToQualified(parsed.returnType, [...path, node.name!]),
                         args: parsed.args.map(arg => ctypeToQualified(arg, [...path, node_struct.name!])),
-                        static: node.storageClass === 'static',
+                        static: isStatic,
                         comment: comment.length > 0 ? comment : undefined,
                         argNames
                     });
@@ -315,12 +316,25 @@ template<> struct js_bind<${fullName}> {
 
         // Generate property bindings
         for (const [propName, { getter, setter }] of properties) {
-            if (setter) {
-                binding += `
-                .property<&${fullName}::${getter.name}, &${fullName}::${setter.name}>("${propName}")`;
+          if (setter.static !== getter.static) {
+                throw new Error(`Found setter ${setter!.name} with different staticness than getter for property ${propName}`);
+            }
+            if  (getter.static) {
+                if (setter) {
+                    binding += `
+                    .static_property<&${fullName}::${getter.name}, &${fullName}::${setter.name}>("${propName}")`;
+                } else {
+                    binding += `
+                    .static_property<&${fullName}::${getter.name}>("${propName}")`;
+                }
             } else {
-                binding += `
-                .property<&${fullName}::${getter.name}>("${propName}")`;
+                if (setter) {
+                    binding += `
+                    .property<&${fullName}::${getter.name}, &${fullName}::${setter.name}>("${propName}")`;
+                } else {
+                    binding += `
+                    .property<&${fullName}::${getter.name}>("${propName}")`;
+                }
             }
         }
 
