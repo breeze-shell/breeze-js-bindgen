@@ -84,6 +84,18 @@ function processAstAndGenerateCode(
     const structNames: string[] = [];
     const enumNames: string[] = [];
 
+    // Format a single TypeScript parameter, handling qjs::rest<T> as rest params.
+    const formatTsParam = (cppType: string, name: string, ns: string): string => {
+        // Detect qjs::rest<T> — strip namespace prefix variants
+        const restMatch = cppType.match(/^(?:qjs::)?rest<(.+)>$/);
+        if (restMatch) {
+            const innerTs = cTypeToTypeScript(restMatch[1], ns);
+            return `...${name}: ${innerTs}[]`;
+        }
+        const isOpt = cppType.startsWith('std::optional');
+        return `${name}${isOpt ? '?' : ''}: ${cTypeToTypeScript(cppType, ns)}`;
+    };
+
     const resolveUnderPath = (path: string[], resolveName: string): string => {
         const ns = path.join('::');
         const fullName = `${ns}::${resolveName}`;
@@ -143,6 +155,9 @@ declare module '${tsModuleName}' {
                 type: ctypeToQualified(base.type!.qualType, path)
             })) || [];
 
+        // Collect user-declared constructors (non-implicit, non-deleted)
+        const ctors: { args: string[]; argNames: string[] }[] = [];
+
         if (!node_struct.inner) return;
 
         for (const node of node_struct.inner) {
@@ -191,6 +206,22 @@ declare module '${tsModuleName}' {
                 comment = comment.trim();
             }
 
+
+            if (node.kind === 'CXXConstructorDecl') {
+                // Skip implicit (compiler-generated) and deleted constructors
+                if (node.implicit || node.explicitlyDeleted) continue;
+                const parsed = parseFunctionQualType(node.type!.qualType);
+                const argNames: string[] = [];
+                if (node.inner) {
+                    for (const arg of node.inner) {
+                        if (arg.kind === 'ParmVarDecl') argNames.push(arg.name!);
+                    }
+                }
+                ctors.push({
+                    args: parsed.args.map(arg => ctypeToQualified(arg, [...path, node_struct.name!])),
+                    argNames,
+                });
+            }
 
             if (node.kind === 'FieldDecl') {
                 fields.push({
@@ -287,8 +318,19 @@ template <> struct qjs::js_traits<${fullName}> {
         binding += `
 template<> struct js_bind<${fullName}> {
     static void bind(qjs::Context::Module &mod) {
-        mod.class_<${fullName}>("${jsNamespaceName}")
+        mod.class_<${fullName}>("${jsNamespaceName}")`;
+
+        if (ctors.length > 1) {
+            warn(`Class "${fullName}" has ${ctors.length} constructors. Only the first will be bound.`);
+        }
+        const ctor = ctors[0];
+        if (ctor && ctor.args.length > 0) {
+            binding += `
+            .constructor<${ctor.args.join(', ')}>()`;
+        } else {
+            binding += `
             .constructor<>()`;
+        }
         if (bases.length > 0) {
             binding += `
                 .base<${bases[0].type}>()`;
@@ -360,6 +402,15 @@ template<> struct js_bind<${fullName}> {
         if (tsNamespace) typescriptDef += `\nnamespace ${tsNamespace} {`;
         typescriptDef += `
 export class ${tsClassName}${bases.length > 0 ? ` extends ${bases.map(base => base.type.split('::').pop() ?? base.type).join(', ')}` : ''} {`;
+
+        // Emit constructor signature using the first ctor (same as C++ binding)
+        if (ctors.length > 0 && ctors[0].args.length > 0) {
+            const ctorArgs = ctors[0].args.map((arg, i) =>
+                formatTsParam(arg, ctors[0].argNames[i] || `arg${i}`, nameFilter)
+            ).join(', ');
+            typescriptDef += `\n\tconstructor(${ctorArgs});`;
+        }
+
         fields.forEach(field => {
             let fieldDef = `${field.name}${field.type.startsWith('std::optional') ? '?' : ''}: ${cTypeToTypeScript(field.type, nameFilter)}`;
             if (field.comment) {
@@ -413,8 +464,7 @@ export class ${tsClassName}${bases.length > 0 ? ` extends ${bases.map(base => ba
             if (method.isGetter || method.isSetter) return;
 
             let methodDef = `${method.static ? 'static ' : ''}${method.name}(${method.argNames && method.argNames.length > 0 ? method.args.map((arg, i) =>
-                `${method.argNames![i] || `arg${i}`}${arg.startsWith('std::optional') ? '?' : ''
-                }: ${cTypeToTypeScript(arg, nameFilter)}`).join(', ') : ''}): ${cTypeToTypeScript(method.returnType, nameFilter)}`;
+                formatTsParam(arg, method.argNames![i] || `arg${i}`, nameFilter)).join(', ') : ''}): ${cTypeToTypeScript(method.returnType, nameFilter)}`;
             let comments = '';
             if (method.comment) comments += method.comment;
             if (comments || (method.argNames && method.argNames.length > 0)) {

@@ -164,6 +164,9 @@ export class CTypeParser {
             ignoreTypes.includes(node.type)
         ) {
             tsBasicType = node.argsTemplate.map(a => this.formatToTypeScript(a, namespace)).join(' | ')
+        } else if (node.type === 'qjs.rest') {
+            // qjs::rest<T> → T[] (the rest-param spread is handled at call-site via formatTsParam)
+            tsBasicType = `${this.formatToTypeScript(node.argsTemplate[0], namespace)}[]`
         } else if (node.type === 'std.optional') {
             tsBasicType = `${this.formatToTypeScript(node.argsTemplate[0], namespace)} | undefined`
         } else if (node.type === 'std.pair' || node.type === 'std.tuple') {
