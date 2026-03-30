@@ -392,9 +392,10 @@ export class ${tsClassName}${bases.length > 0 ? ` extends ${bases.map(base => ba
         }
 
         for (const [propName, { getter, setter }] of properties) {
-            let propDef = `get ${propName}(): ${cTypeToTypeScript(getter!.returnType, nameFilter)};`;
+            const staticFlag = getter?.static ? 'static ' : '';
+            let propDef = `${staticFlag}get ${propName}(): ${cTypeToTypeScript(getter!.returnType, nameFilter)};`;
             if (setter) {
-                propDef += `\n    set ${propName}(value: ${cTypeToTypeScript(setter.args[0], nameFilter)});`;
+                propDef += `\n    ${staticFlag}set ${propName}(value: ${cTypeToTypeScript(setter.args[0], nameFilter)});`;
             }
 
             if (getter?.comment) {
