@@ -208,8 +208,8 @@ declare module '${tsModuleName}' {
 
 
             if (node.kind === 'CXXConstructorDecl') {
-                // Skip implicit (compiler-generated) and deleted constructors
-                if (node.implicit || node.explicitlyDeleted) continue;
+                // Skip implicit (compiler-generated), deleted constructors
+                if (node.implicit || node.explicitlyDeleted || node.isImplicit) continue;
                 const parsed = parseFunctionQualType(node.type!.qualType);
                 const argNames: string[] = [];
                 if (node.inner) {
